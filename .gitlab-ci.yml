@@ -1,0 +1,354 @@
+.azure-login-sbox: &azure-login-sbox
+  - export ARM_CLIENT_ID=$SBOX_CLIENT_ID ARM_CLIENT_SECRET=$SBOX_CLIENT_SECRET ARM_TENANT_ID=$TENANT_ID ARM_SUBSCRIPTION_ID=$SBOX_SUBSCRIPTION_ID
+
+.azure-login-devt: &azure-login-devt
+  - export ARM_CLIENT_ID=$DEV_CLIENT_ID ARM_CLIENT_SECRET=$DEV_CLIENT_SECRET ARM_TENANT_ID=$TENANT_ID ARM_SUBSCRIPTION_ID=$DEV_SUBSCRIPTION_ID
+
+.azure-login-test: &azure-login-test
+  - export ARM_CLIENT_ID=$TEST_CLIENT_ID ARM_CLIENT_SECRET=$TEST_CLIENT_SECRET ARM_TENANT_ID=$TENANT_ID ARM_SUBSCRIPTION_ID=$TEST_SUBSCRIPTION_ID
+
+.azure-login-stag: &azure-login-stag
+  - export ARM_CLIENT_ID=$STAG_CLIENT_ID ARM_CLIENT_SECRET=$STAG_CLIENT_SECRET ARM_TENANT_ID=$TENANT_ID ARM_SUBSCRIPTION_ID=$STAG_SUBSCRIPTION_ID
+
+.azure-login-prod: &azure-login-prod
+  - export ARM_CLIENT_ID=$PROD_CLIENT_ID ARM_CLIENT_SECRET=$PROD_CLIENT_SECRET ARM_TENANT_ID=$TENANT_ID ARM_SUBSCRIPTION_ID=$PROD_SUBSCRIPTION_ID
+
+
+dm-plan-sbox:
+  stage: SBOX
+  before_script:
+    - *azure-login-sbox
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $SBOX_SUBSCRIPTION_NAME
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/sbox.hcl -input=false
+    - terraform workspace select sbox || terraform workspace new sbox
+    - terraform plan -var-file=var/sbox.tfvars -var-file=var/secretssbox.tfvars -out plan.out
+  tags:
+    - dd-mif-sbox
+  artifacts:
+    paths:
+      - terraform/FED-MI/plan.out
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+dm-apply-sbox:
+  stage: SBOX
+  before_script:
+    - *azure-login-sbox
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $SBOX_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/sbox.hcl -input=false
+    - terraform workspace select sbox || terraform workspace new sbox
+    - terraform apply -var-file=var/sbox.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-sbox
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+dm-plan-devt:
+  stage: DEVT
+  before_script:
+    - *azure-login-devt
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $DEVT_SUBSCRIPTION_NAME
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/devt.hcl -input=false
+    - terraform workspace select devt || terraform workspace new devt
+    - terraform plan -var-file=var/devt.tfvars -var-file=var/secretssbox.tfvars -out plan.out
+  tags:
+    - dd-mif-devt
+  artifacts:
+    paths:
+      - terraform/FED-MI/plan.out
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+dm-apply-devt:
+  stage: DEVT
+  before_script:
+    - *azure-login-devt
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $DEVT_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/devt.hcl -input=false
+    - terraform workspace select devt || terraform workspace new devt
+    - terraform apply -var-file=var/devt.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-devt
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+dm-plan-test:
+  stage: TEST
+  before_script:
+    - *azure-login-test
+  script:
+    - echo "$ARM_CLIENT_ID"
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $TEST_SUBSCRIPTION_NAME
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/test.hcl -input=false
+    - terraform workspace select test || terraform workspace new test
+    - terraform plan -var-file=var/test.tfvars -var-file=var/secretssbox.tfvars -out plan.out
+  tags:
+    - dd-mif-test
+  artifacts:
+    paths:
+      - terraform/FED-MI/plan.out
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+        - terraform/FED-MI/modules/compute/windows_vm/*
+      when: manual
+      allow_failure: true
+
+dm-apply-test:
+  stage: TEST
+  before_script:
+    - *azure-login-test
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $TEST_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/test.hcl -input=false
+    - terraform workspace select test || terraform workspace new test
+    - terraform apply -var-file=var/test.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-test
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/**/*
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+dm-plan-stag:
+  stage: STAG
+  before_script:
+    - *azure-login-stag
+  script:
+    - echo "$ARM_CLIENT_ID"
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $STAG_SUBSCRIPTION_NAME
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/stag.hcl -input=false
+    - terraform workspace select stag || terraform workspace new stag
+    - terraform plan -var-file=var/stag.tfvars -var-file=var/secretssbox.tfvars -out plan.out
+  tags:
+    - dd-mif-stag
+  artifacts:
+    paths:
+      - terraform/FED-MI/plan.out
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+        - terraform/FED-MI/modules/compute/windows_vm/*
+      when: manual
+      allow_failure: true
+  
+dm-apply-stag:
+  stage: STAG
+  before_script:
+    - *azure-login-stag
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $STAG_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/stag.hcl -input=false
+    - terraform workspace select stag || terraform workspace new stag
+    - terraform apply -var-file=var/stag.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-stag
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+dm-destroy-stag:
+  stage: STAG
+  before_script:
+    - *azure-login-stag
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $STAG_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/stag.hcl -input=false
+    - terraform workspace select stag || terraform workspace new stag
+    - terraform destroy -var-file=var/stag.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-stag
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+alerting-plan-stag:
+  stage: STAG
+  before_script:
+    - *azure-login-stag
+  script:
+    - echo "$ARM_CLIENT_ID"
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $STAG_SUBSCRIPTION_NAME
+    - cd terraform/FED-MI/modules/services/fedmi-alerting
+    - terraform init -backend-config=var/stag.hcl -input=false
+    - terraform workspace select stag || terraform workspace new stag
+    - terraform plan -var-file=var/stag.tfvars -var-file=var/secretssbox.tfvars -out plan.out
+  tags:
+    - dd-mif-stag
+  artifacts:
+    paths:
+      - terraform/FED-MI/plan.out
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+        - terraform/FED-MI/modules/compute/windows_vm/*
+      when: manual
+      allow_failure: true
+
+alerting-apply-stag:
+  stage: STAG
+  before_script:
+    - *azure-login-stag
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $STAG_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI/modules/services/fedmi-alerting
+    - terraform init -backend-config=var/stag.hcl -input=false
+    - terraform workspace select stag || terraform workspace new stag
+    - terraform apply -var-file=var/stag.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-stag
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+dm-plan-prod:
+  stage: PROD
+  before_script:
+    - *azure-login-prod
+  script:
+    - echo "$ARM_CLIENT_ID"
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $PROD_SUBSCRIPTION_NAME
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/prod.hcl -input=false
+    - terraform workspace select prod || terraform workspace new prod
+    - terraform plan -var-file=var/prod.tfvars -var-file=var/secretssbox.tfvars -out plan.out
+  tags:
+    - dd-mif-prod
+  artifacts:
+    paths:
+      - terraform/FED-MI/plan.out
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+        - terraform/FED-MI/modules/compute/windows_vm/*
+      when: manual
+      allow_failure: true
+  
+dm-apply-prod:
+  stage: PROD
+  before_script:
+    - *azure-login-prod
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $PROD_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI
+    - terraform init -backend-config=var/prod.hcl -input=false
+    - terraform workspace select prod || terraform workspace new prod
+    - terraform apply -var-file=var/prod.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-prod
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
+
+alerting-plan-prod:
+  stage: PROD
+  before_script:
+    - *azure-login-prod
+  script:
+    - echo "$ARM_CLIENT_ID"
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $PROD_SUBSCRIPTION_NAME
+    - cd terraform/FED-MI/modules/services/fedmi-alerting
+    - terraform init -backend-config=var/prod.hcl -input=false
+    - terraform workspace select prod || terraform workspace new prod
+    - terraform plan -var-file=var/prod.tfvars -var-file=var/secretssbox.tfvars -out plan.out
+  tags:
+    - dd-mif-prod
+  artifacts:
+    paths:
+      - terraform/FED-MI/plan.out
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+        - terraform/FED-MI/modules/compute/windows_vm/*
+      when: manual
+      allow_failure: true
+
+alerting-apply-prod:
+  stage: PROD
+  before_script:
+    - *azure-login-prod
+  script:
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $PROD_SUBSCRIPTION_NAME  
+    - cd terraform/FED-MI/modules/services/fedmi-alerting
+    - terraform init -backend-config=var/prod.hcl -input=false
+    - terraform workspace select prod || terraform workspace new prod
+    - terraform apply -var-file=var/prod.tfvars -var-file=var/secretssbox.tfvars -auto-approve
+  tags:
+    - dd-mif-prod
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - terraform/FED-MI/**/*
+      when: manual
+      allow_failure: true
